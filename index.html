@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Cornice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#23221E;
+    --board:#BDB7A8;
+    --board-dark:#8E887A;
+    --paper:#F1EEE7;
+    --line:#9A9484;
+    --action:#24423C;
+    --action-hi:#325E56;
+    --light:#F4F1EA;
+    --serif:"Instrument Serif", Georgia, "Times New Roman", serif;
+    --sans:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:#000; color:var(--light);
+    font-family:var(--sans); font-weight:300;
+    overflow:hidden; cursor:none;
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  body.pointer{cursor:auto}
+
+  /* ---------- palcoscenico foto ---------- */
+  #stage{position:fixed; inset:0; background:#000}
+  .slide{position:absolute; inset:0; opacity:0; transition:opacity 1.6s ease-in-out}
+  .slide.on{opacity:1}
+  .slide .bg{
+    position:absolute; inset:-6%;
+    width:112%; height:112%;
+    object-fit:cover;
+    filter:blur(48px) saturate(1.1) brightness(.42);
+    transform:scale(1.05);
+  }
+  .slide .ph{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:contain;
+    animation:drift 46s ease-in-out forwards;
+  }
+  @keyframes drift{
+    from{transform:scale(1) translate3d(0,0,0)}
+    to{transform:scale(1.045) translate3d(var(--dx,0), var(--dy,0), 0)}
+  }
+  body.still .slide .ph{animation:none}
+  @media (prefers-reduced-motion: reduce){
+    .slide .ph{animation:none}
+    .slide{transition-duration:.4s}
+  }
+
+  /* ---------- didascalia effimera (appare e svanisce: niente burn-in) ---------- */
+  #caption{
+    position:fixed; left:0; right:0; bottom:0;
+    padding:clamp(20px,4vh,54px) clamp(24px,5vw,64px);
+    background:linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,0));
+    opacity:0; transition:opacity 1.2s ease;
+    pointer-events:none;
+  }
+  #caption.show{opacity:1}
+  #clock{
+    font-family:var(--serif);
+    font-size:clamp(46px,7vw,104px);
+    line-height:.9; letter-spacing:-.01em;
+    text-shadow:0 2px 24px rgba(0,0,0,.55);
+  }
+  #meta{
+    margin-top:.5em; font-size:clamp(12px,1.35vw,17px);
+    letter-spacing:.02em; color:rgba(244,241,234,.78);
+    text-shadow:0 1px 12px rgba(0,0,0,.6);
+  }
+  #meta .sep{opacity:.45; margin:0 .55em}
+
+  /* ---------- notte ---------- */
+  #night{
+    position:fixed; inset:0; background:#000; z-index:40;
+    opacity:0; pointer-events:none; transition:opacity 2.5s ease;
+  }
+  body.night #night{opacity:1; pointer-events:auto}
+  #nightclock{
+    position:absolute; font-family:var(--serif);
+    font-size:clamp(28px,3.4vw,52px); color:#2b2b2b;
+    transition:left 3s ease, top 3s ease;
+  }
+  body.night #stage{opacity:0; transition:opacity 2.5s ease}
+
+  /* ---------- messaggi ---------- */
+  #note{
+    position:fixed; z-index:60; left:50%; top:50%; transform:translate(-50%,-50%);
+    max-width:min(520px,86vw); text-align:center;
+    font-size:15px; line-height:1.6; color:rgba(244,241,234,.9);
+    opacity:0; transition:opacity .5s ease; pointer-events:none;
+  }
+  #note.show{opacity:1}
+  #note b{font-weight:500; display:block; margin-bottom:.4em; font-size:17px}
+  #note small{display:block; margin-top:1em; color:rgba(244,241,234,.5)}
+
+  /* ---------- pannelli (PIN + impostazioni) ---------- */
+  .panel{
+    position:fixed; inset:0; z-index:80; display:none;
+    background:var(--board);
+    background-image:
+      radial-gradient(rgba(0,0,0,.05) 1px, transparent 1px),
+      linear-gradient(160deg, rgba(255,255,255,.14), rgba(0,0,0,.10));
+    background-size:3px 3px, 100% 100%;
+    color:var(--ink); overflow:auto; cursor:auto;
+    padding:clamp(18px,4vh,48px) clamp(16px,4vw,48px);
+  }
+  .panel.show{display:block}
+  .sheet{
+    max-width:720px; margin:0 auto; background:var(--paper);
+    border:1px solid rgba(0,0,0,.14);
+    box-shadow:0 18px 44px rgba(0,0,0,.28);
+    padding:clamp(22px,4vw,44px);
+  }
+  .sheet h1{
+    font-family:var(--serif); font-weight:400;
+    font-size:clamp(30px,4.4vw,46px); line-height:1.05;
+    margin:0 0 .25em;
+  }
+  .sheet p.lead{margin:0 0 2em; font-size:15px; line-height:1.65; max-width:56ch; color:#4A4840}
+  fieldset{border:0; padding:0; margin:0 0 2em}
+  fieldset legend{
+    font-family:var(--serif); font-size:22px; padding:0 0 .5em;
+    border-bottom:1px solid var(--line); width:100%; margin-bottom:1.2em;
+  }
+  .row{display:flex; gap:18px; flex-wrap:wrap; margin-bottom:1.1em}
+  .field{flex:1 1 220px; min-width:0}
+  label{display:block; font-size:13px; margin-bottom:.45em; color:#4A4840}
+  label .hint{color:#7A7568; font-size:12px}
+  input[type=text],input[type=number],input[type=password],select{
+    width:100%; padding:.62em .7em; font:inherit; font-size:15px;
+    background:#fff; color:var(--ink);
+    border:1px solid var(--line); border-radius:2px;
+  }
+  input:focus,select:focus,button:focus-visible{outline:2px solid var(--action); outline-offset:2px}
+  .check{display:flex; align-items:center; gap:.6em; font-size:15px; margin:.1em 0 .9em}
+  .check input{width:18px; height:18px; accent-color:var(--action)}
+  .actions{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:2em}
+  button{
+    font:inherit; font-size:15px; padding:.7em 1.5em; border-radius:2px;
+    border:1px solid var(--action); background:var(--action); color:var(--paper);
+    cursor:pointer;
+  }
+  button:hover{background:var(--action-hi)}
+  button.ghost{background:transparent; color:var(--action)}
+  button.ghost:hover{background:rgba(36,66,60,.08)}
+  .status{font-size:14px; color:#4A4840; min-height:1.4em; margin-top:1em}
+  .status.bad{color:#7A2E22}
+  .status.good{color:var(--action)}
+
+  /* PIN */
+  #gate .sheet{max-width:420px; text-align:center}
+  #pinbox{
+    font-family:var(--serif); font-size:34px; text-align:center;
+    letter-spacing:.4em; padding:.4em; width:100%;
+    border:0; border-bottom:1px solid var(--line); background:transparent;
+  }
+  #gate .actions{justify-content:center}
+</style>
+</head>
+<body class="still">
+
+<div id="stage">
+  <div class="slide" data-i="0"><img class="bg" alt=""><img class="ph" alt=""></div>
+  <div class="slide" data-i="1"><img class="bg" alt=""><img class="ph" alt=""></div>
+</div>
+
+<div id="caption">
+  <div id="clock">--:--</div>
+  <div id="meta"></div>
+</div>
+
+<div id="night"><div id="nightclock">--:--</div></div>
+
+<div id="note"></div>
+
+<!-- ---------- PIN ---------- -->
+<div class="panel" id="gate">
+  <div class="sheet">
+    <h1>Cornice</h1>
+    <p class="lead">Inserisci il codice per vedere le foto.</p>
+    <input id="pinbox" type="password" inputmode="numeric" autocomplete="off" maxlength="12" aria-label="Codice">
+    <div class="actions"><button id="pinok">Apri</button></div>
+    <div class="status" id="pinstatus"></div>
+  </div>
+</div>
+
+<!-- ---------- IMPOSTAZIONI ---------- -->
+<div class="panel" id="setup">
+  <div class="sheet">
+    <h1>Impostazioni della cornice</h1>
+    <p class="lead">Le impostazioni restano su questo dispositivo. Dopo il salvataggio la cornice riparte da sola.</p>
+
+    <fieldset>
+      <legend>Dove sono le foto</legend>
+      <div class="row">
+        <div class="field">
+          <label for="folderId">ID della cartella Google Drive <span class="hint">(la parte finale del link di condivisione)</span></label>
+          <input id="folderId" type="text" spellcheck="false" placeholder="1AbC...xyz">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="apiKey">Chiave API di Google <span class="hint">(limitala al dominio del sito)</span></label>
+          <input id="apiKey" type="text" spellcheck="false" placeholder="AIza...">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="jsonUrl">Oppure indirizzo di un elenco JSON <span class="hint">(alternativa a Drive)</span></label>
+          <input id="jsonUrl" type="text" spellcheck="false" placeholder="https://.../photos.json">
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Come scorrono</legend>
+      <div class="row">
+        <div class="field">
+          <label for="intervalSec">Secondi per foto</label>
+          <input id="intervalSec" type="number" min="5" max="600" step="5">
+        </div>
+        <div class="field">
+          <label for="order">Ordine</label>
+          <select id="order">
+            <option value="shuffle">Casuale</option>
+            <option value="newest">Dalle più recenti</option>
+            <option value="name">Per nome file</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="refreshHours">Ricontrolla la cartella ogni (ore)</label>
+          <input id="refreshHours" type="number" min="1" max="48" step="1">
+        </div>
+      </div>
+      <div class="check"><input type="checkbox" id="kenBurns"><label for="kenBurns" style="margin:0">Movimento lento dell'immagine</label></div>
+      <div class="check"><input type="checkbox" id="showMeta"><label for="showMeta" style="margin:0">Mostra data e nome della foto</label></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Orari</legend>
+      <div class="row">
+        <div class="field">
+          <label for="onHour">Si accende alle</label>
+          <input id="onHour" type="number" min="0" max="23" step="1">
+        </div>
+        <div class="field">
+          <label for="offHour">Va a riposo alle</label>
+          <input id="offHour" type="number" min="0" max="23" step="1">
+        </div>
+        <div class="field">
+          <label for="wakeMin">Risveglio al tocco, per (minuti)</label>
+          <input id="wakeMin" type="number" min="1" max="120" step="1">
+        </div>
+      </div>
+      <div class="check"><input type="checkbox" id="nightClock"><label for="nightClock" style="margin:0">Di notte lascia un orologio molto tenue</label></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Accesso</legend>
+      <div class="row">
+        <div class="field">
+          <label for="pin">Codice di accesso <span class="hint">(vuoto = nessun codice)</span></label>
+          <input id="pin" type="text" inputmode="numeric" spellcheck="false" placeholder="es. 1974">
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="actions">
+      <button id="save">Salva e avvia</button>
+      <button class="ghost" id="test">Prova la cartella</button>
+      <button class="ghost" id="close">Torna alle foto</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ============ memoria locale, con riserva in RAM ============ */
+const mem = {};
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return k in mem ? mem[k] : null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){ mem[k]=v; } }
+};
+
+const DEFAULTS = {
+  folderId:'', apiKey:'', jsonUrl:'',
+  intervalSec:30, order:'shuffle', refreshHours:6,
+  kenBurns:true, showMeta:true,
+  onHour:8, offHour:22, wakeMin:15, nightClock:true,
+  pin:''
+};
+
+function loadConfig(){
+  let saved = {};
+  try { saved = JSON.parse(store.get('cornice.config') || '{}'); } catch(e){}
+  const q = new URLSearchParams(location.search);
+  const fromUrl = {};
+  for (const k of Object.keys(DEFAULTS)) if (q.has(k)) fromUrl[k] = q.get(k);
+  const c = Object.assign({}, DEFAULTS, saved, fromUrl);
+  c.intervalSec = Math.max(5, +c.intervalSec || 30);
+  c.refreshHours = Math.max(1, +c.refreshHours || 6);
+  c.onHour = clampHour(c.onHour, 8);
+  c.offHour = clampHour(c.offHour, 22);
+  c.wakeMin = Math.max(1, +c.wakeMin || 15);
+  for (const k of ['kenBurns','showMeta','nightClock']) c[k] = (c[k]===true || c[k]==='true' || c[k]==='on');
+  return c;
+}
+function clampHour(v, def){ const n = +v; return Number.isFinite(n) && n>=0 && n<=23 ? Math.floor(n) : def; }
+function saveConfig(c){ store.set('cornice.config', JSON.stringify(c)); }
+
+let cfg = loadConfig();
+
+/* ============ elementi ============ */
+const $ = s => document.querySelector(s);
+const slides = [...document.querySelectorAll('.slide')];
+const caption = $('#caption'), clockEl = $('#clock'), metaEl = $('#meta');
+const noteEl = $('#note'), nightClockEl = $('#nightclock');
+const setupEl = $('#setup'), gateEl = $('#gate'), statusEl = $('#status');
+
+/* ============ stato ============ */
+const S = {
+  photos: [], deck: [], deckPos: 0, history: [], histPos: -1,
+  active: 0, advTimer: null, capTimer: null, wakeTimer: null,
+  night: false, forcedAwake: false, failures: 0, wakeLock: null,
+  lastFetch: 0, started: false
+};
+
+/* ============ note a schermo ============ */
+let noteTimer = null;
+function note(title, body, extra, persist){
+  noteEl.innerHTML = '<b>'+title+'</b>' + (body||'') + (extra ? '<small>'+extra+'</small>' : '');
+  noteEl.classList.add('show');
+  clearTimeout(noteTimer);
+  if (!persist) noteTimer = setTimeout(()=>noteEl.classList.remove('show'), 6000);
+}
+function clearNote(){ clearTimeout(noteTimer); noteEl.classList.remove('show'); }
+
+/* ============ lettura elenco foto ============ */
+async function fetchPhotos(){
+  if (cfg.jsonUrl) return fetchFromJson(cfg.jsonUrl);
+  if (!cfg.folderId || !cfg.apiKey) throw new Error('config');
+  const out = [];
+  let pageToken = '';
+  do {
+    const p = new URLSearchParams({
+      q: `'${cfg.folderId}' in parents and trashed = false and mimeType contains 'image/'`,
+      key: cfg.apiKey,
+      fields: 'nextPageToken,files(id,name,modifiedTime,imageMediaMetadata(time))',
+      pageSize: '1000',
+      orderBy: 'name_natural'
+    });
+    if (pageToken) p.set('pageToken', pageToken);
+    const r = await fetch('https://www.googleapis.com/drive/v3/files?' + p.toString());
+    if (!r.ok){
+      const j = await r.json().catch(()=>({}));
+      const msg = (j.error && j.error.message) || ('HTTP ' + r.status);
+      const err = new Error(msg); err.code = r.status; throw err;
+    }
+    const j = await r.json();
+    for (const f of (j.files || [])){
+      out.push({ id:f.id, name:f.name, taken: (f.imageMediaMetadata && f.imageMediaMetadata.time) || f.modifiedTime || '' });
+    }
+    pageToken = j.nextPageToken || '';
+  } while (pageToken && out.length < 5000);
+  return out;
+}
+
+async function fetchFromJson(url){
+  const r = await fetch(url, {cache:'no-store'});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  const arr = Array.isArray(j) ? j : (j.photos || []);
+  return arr.map(x => typeof x === 'string'
+    ? { id:'', url:x, name:x.split('/').pop(), taken:'' }
+    : { id:x.id||'', url:x.url||'', name:x.name||'', taken:x.taken||'' });
+}
+
+/* due endpoint per la stessa immagine: se il primo non risponde, si prova il secondo */
+function urlsFor(p){
+  if (p.url) return [p.url];
+  const w = Math.min(2560, Math.round((window.innerWidth || 1920) * (window.devicePixelRatio || 1)));
+  return [
+    `https://lh3.googleusercontent.com/d/${p.id}=w${w}`,
+    `https://drive.google.com/thumbnail?id=${p.id}&sz=w${w}`
+  ];
+}
+
+function loadImage(urls){
+  return new Promise((resolve, reject) => {
+    let i = 0;
+    const img = new Image();
+    img.decoding = 'async';
+    img.referrerPolicy = 'no-referrer';
+    img.onload = () => resolve(img.src);
+    img.onerror = () => { i++; if (i < urls.length) img.src = urls[i]; else reject(new Error('img')); };
+    img.src = urls[0];
+  });
+}
+
+/* ============ mazzo di foto ============ */
+function buildDeck(){
+  const list = S.photos.slice();
+  if (cfg.order === 'newest') list.sort((a,b) => (b.taken||'').localeCompare(a.taken||''));
+  else if (cfg.order === 'name') list.sort((a,b) => a.name.localeCompare(b.name, 'it', {numeric:true}));
+  else for (let i = list.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [list[i],list[j]] = [list[j],list[i]]; }
+  S.deck = list; S.deckPos = 0;
+}
+function drawNext(){
+  if (!S.deck.length) return null;
+  if (S.deckPos >= S.deck.length) buildDeck();
+  return S.deck[S.deckPos++];
+}
+
+/* ============ visualizzazione ============ */
+async function show(photo){
+  if (!photo) return;
+  let src;
+  try { src = await loadImage(urlsFor(photo)); }
+  catch(e){
+    S.failures++;
+    if (S.failures > 6 && S.failures >= S.photos.length){
+      note('Le foto non si aprono',
+        'Il sito legge l\'elenco ma non riesce a scaricare le immagini. Di solito la cartella non è condivisa con "chiunque abbia il link".');
+    }
+    schedule(3000);
+    return;
+  }
+  S.failures = 0;
+
+  const el = slides[1 - S.active];
+  el.querySelector('.bg').src = src;
+  const ph = el.querySelector('.ph');
+  ph.src = src;
+  if (cfg.kenBurns){
+    ph.style.setProperty('--dx', (Math.random()*2-1).toFixed(2) + '%');
+    ph.style.setProperty('--dy', (Math.random()*2-1).toFixed(2) + '%');
+    ph.style.animation = 'none'; void ph.offsetWidth; ph.style.animation = '';
+  }
+  slides[S.active].classList.remove('on');
+  el.classList.add('on');
+  S.active = 1 - S.active;
+
+  showCaption(photo);
+  schedule(cfg.intervalSec * 1000);
+}
+
+function schedule(ms){
+  clearTimeout(S.advTimer);
+  S.advTimer = setTimeout(() => { if (!S.night || S.forcedAwake) next(); }, ms);
+}
+
+function next(){
+  const p = drawNext();
+  if (!p) return;
+  S.history.push(p); if (S.history.length > 60) S.history.shift();
+  S.histPos = S.history.length - 1;
+  show(p);
+}
+function prev(){
+  if (S.histPos <= 0) return;
+  S.histPos--;
+  show(S.history[S.histPos]);
+}
+
+/* ============ didascalia e orologio ============ */
+const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+function hhmm(d){ return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+
+function showCaption(photo){
+  clockEl.textContent = hhmm(new Date());
+  const bits = [];
+  if (cfg.showMeta && photo){
+    if (photo.taken){
+      const d = new Date(photo.taken.replace(' ', 'T').replace(/:(\d{2}):(\d{2})T/, '-$1-$2T'));
+      if (!isNaN(d)) bits.push(d.getDate() + ' ' + MESI[d.getMonth()] + ' ' + d.getFullYear());
+    }
+    if (!bits.length && photo.name) bits.push(photo.name.replace(/\.[a-z0-9]+$/i, ''));
+  }
+  const today = new Date();
+  const oggi = today.getDate() + ' ' + MESI[today.getMonth()];
+  metaEl.innerHTML = bits.length ? bits.join('') + '<span class="sep">·</span>' + oggi : oggi;
+
+  caption.classList.add('show');
+  clearTimeout(S.capTimer);
+  S.capTimer = setTimeout(() => caption.classList.remove('show'), 7000);
+}
+
+setInterval(() => {
+  const t = hhmm(new Date());
+  clockEl.textContent = t;
+  nightClockEl.textContent = t;
+}, 20000);
+
+/* l'orologio notturno si sposta piano: nessun pixel resta acceso sempre nello stesso punto */
+setInterval(() => {
+  if (!S.night) return;
+  nightClockEl.style.left = (10 + Math.random()*70) + '%';
+  nightClockEl.style.top  = (12 + Math.random()*70) + '%';
+}, 300000);
+
+/* ============ orari ============ */
+function isDayNow(){
+  const h = new Date().getHours();
+  if (cfg.onHour === cfg.offHour) return true;
+  return cfg.onHour < cfg.offHour
+    ? (h >= cfg.onHour && h < cfg.offHour)
+    : (h >= cfg.onHour || h < cfg.offHour);
+}
+
+function enterNight(){
+  S.night = true; S.forcedAwake = false;
+  clearTimeout(S.advTimer);
+  document.body.classList.add('night');
+  nightClockEl.style.display = cfg.nightClock ? 'block' : 'none';
+  nightClockEl.textContent = hhmm(new Date());
+  releaseWakeLock();
+  /* ricarica a mente fredda mezz'ora dopo lo spegnimento: la pagina resta leggera anche dopo mesi */
+  setTimeout(() => { if (S.night && !S.forcedAwake) location.reload(); }, 30*60*1000);
+}
+
+function enterDay(){
+  S.night = false; S.forcedAwake = false;
+  document.body.classList.remove('night');
+  requestWakeLock();
+  if (Date.now() - S.lastFetch > cfg.refreshHours*3600*1000) refresh();
+  else next();
+}
+
+function wakeForAWhile(){
+  if (!S.night) return;
+  S.forcedAwake = true;
+  document.body.classList.remove('night');
+  next();
+  clearTimeout(S.wakeTimer);
+  S.wakeTimer = setTimeout(() => { if (!isDayNow()) enterNight(); else S.forcedAwake = false; }, cfg.wakeMin*60*1000);
+}
+
+setInterval(() => {
+  const day = isDayNow();
+  if (!day && !S.night && !S.forcedAwake) enterNight();
+  else if (day && S.night) enterDay();
+}, 30000);
+
+/* ============ schermo sempre acceso ============ */
+async function requestWakeLock(){
+  try { if ('wakeLock' in navigator && !S.wakeLock) S.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+}
+function releaseWakeLock(){ try { S.wakeLock && S.wakeLock.release(); } catch(e){} S.wakeLock = null; }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !S.night) requestWakeLock(); });
+
+/* ============ avvio ============ */
+async function refresh(){
+  try {
+    const list = await fetchPhotos();
+    S.lastFetch = Date.now();
+    if (!list.length){
+      note('La cartella è vuota', 'Carica qualche immagine nella cartella e la cornice la troverà al prossimo controllo.', null, true);
+      return;
+    }
+    clearNote();
+    S.photos = list;
+    buildDeck();
+    if (!S.started){ S.started = true; next(); }
+  } catch(e){
+    if (e.message === 'config'){ openSetup(); return; }
+    const hint = e.code === 403
+      ? 'La chiave API è bloccata per questo indirizzo, oppure l\'API Drive non è attiva nel progetto Google.'
+      : e.code === 404
+        ? 'L\'ID della cartella non esiste o la cartella non è condivisa con "chiunque abbia il link".'
+        : e.message;
+    note('Non riesco a leggere la cartella', hint, 'Premi <b style="display:inline">S</b> o tieni premuto sullo schermo per aprire le impostazioni.', true);
+    if (S.photos.length) schedule(60000);
+  }
+}
+
+setInterval(() => { if (!S.night && Date.now() - S.lastFetch > cfg.refreshHours*3600*1000) refresh(); }, 600000);
+
+/* ============ comandi ============ */
+function openSetup(){
+  document.body.classList.add('pointer');
+  fillForm();
+  setupEl.classList.add('show');
+  clearTimeout(S.advTimer);
+}
+function closeSetup(){
+  setupEl.classList.remove('show');
+  document.body.classList.remove('pointer');
+  if (!isDayNow()) enterNight(); else schedule(1000);
+}
+
+document.addEventListener('keydown', e => {
+  if (setupEl.classList.contains('show') || gateEl.classList.contains('show')) return;
+  if (e.key === 'ArrowRight'){ next(); }
+  else if (e.key === 'ArrowLeft'){ prev(); }
+  else if (e.key === 's' || e.key === 'S'){ openSetup(); }
+  else if (e.key === 'f' || e.key === 'F'){ toggleFullscreen(); }
+  else if (e.key === 'n' || e.key === 'N'){ S.night ? wakeForAWhile() : enterNight(); }
+});
+
+let pressTimer = null;
+document.addEventListener('pointerdown', e => {
+  if (setupEl.classList.contains('show') || gateEl.classList.contains('show')) return;
+  pressTimer = setTimeout(openSetup, 1400);
+});
+['pointerup','pointercancel','pointerleave'].forEach(ev =>
+  document.addEventListener(ev, () => clearTimeout(pressTimer))
+);
+document.addEventListener('click', () => {
+  if (setupEl.classList.contains('show') || gateEl.classList.contains('show')) return;
+  if (S.night) wakeForAWhile();
+  else { showCaption(S.history[S.histPos]); toggleFullscreen(); }
+});
+
+function toggleFullscreen(){
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(()=>{});
+}
+
+/* ============ modulo impostazioni ============ */
+const FIELDS = ['folderId','apiKey','jsonUrl','intervalSec','order','refreshHours','onHour','offHour','wakeMin','pin'];
+const CHECKS = ['kenBurns','showMeta','nightClock'];
+
+function fillForm(){
+  FIELDS.forEach(k => { const el = document.getElementById(k); if (el) el.value = cfg[k]; });
+  CHECKS.forEach(k => { const el = document.getElementById(k); if (el) el.checked = !!cfg[k]; });
+}
+function readForm(){
+  const c = Object.assign({}, cfg);
+  FIELDS.forEach(k => { const el = document.getElementById(k); if (el) c[k] = el.value.trim(); });
+  CHECKS.forEach(k => { const el = document.getElementById(k); if (el) c[k] = el.checked; });
+  c.intervalSec = Math.max(5, +c.intervalSec || 30);
+  c.refreshHours = Math.max(1, +c.refreshHours || 6);
+  c.onHour = clampHour(c.onHour, 8);
+  c.offHour = clampHour(c.offHour, 22);
+  c.wakeMin = Math.max(1, +c.wakeMin || 15);
+  return c;
+}
+
+$('#save').addEventListener('click', () => {
+  cfg = readForm();
+  saveConfig(cfg);
+  document.body.classList.toggle('still', !cfg.kenBurns);
+  S.started = false; S.lastFetch = 0;
+  closeSetup();
+  refresh();
+});
+
+$('#test').addEventListener('click', async () => {
+  const backup = cfg;
+  cfg = readForm();
+  statusEl.className = 'status';
+  statusEl.textContent = 'Controllo in corso…';
+  try {
+    const list = await fetchPhotos();
+    statusEl.className = 'status good';
+    statusEl.textContent = list.length ? ('Trovate ' + list.length + ' immagini.') : 'Collegamento riuscito, ma la cartella non contiene immagini.';
+  } catch(e){
+    statusEl.className = 'status bad';
+    statusEl.textContent = e.message === 'config' ? 'Mancano l\'ID cartella o la chiave API.' : ('Non ha funzionato: ' + e.message);
+  }
+  cfg = backup;
+});
+
+$('#close').addEventListener('click', closeSetup);
+
+/* ============ codice di accesso ============ */
+function unlocked(){ return !cfg.pin || store.get('cornice.unlocked') === cfg.pin; }
+$('#pinok').addEventListener('click', tryPin);
+$('#pinbox').addEventListener('keydown', e => { if (e.key === 'Enter') tryPin(); });
+function tryPin(){
+  const v = $('#pinbox').value.trim();
+  if (v === cfg.pin){
+    store.set('cornice.unlocked', cfg.pin);
+    gateEl.classList.remove('show');
+    document.body.classList.remove('pointer');
+    start();
+  } else {
+    $('#pinstatus').className = 'status bad';
+    $('#pinstatus').textContent = 'Codice non valido. Riprova.';
+    $('#pinbox').value = '';
+  }
+}
+
+/* ============ via ============ */
+function start(){
+  document.body.classList.toggle('still', !cfg.kenBurns);
+  if (isDayNow()){ requestWakeLock(); refresh(); }
+  else { enterNight(); refresh(); }
+}
+
+if (!unlocked()){
+  document.body.classList.add('pointer');
+  gateEl.classList.add('show');
+  $('#pinbox').focus();
+} else if (!cfg.folderId && !cfg.jsonUrl){
+  openSetup();
+} else {
+  start();
+}
+})();
+</script>
+</body>
+</html>
