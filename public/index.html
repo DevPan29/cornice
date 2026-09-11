@@ -86,6 +86,8 @@
     text-shadow:0 1px 12px rgba(0,0,0,.6);
   }
   #meta .sep{opacity:.45; margin:0 .55em}
+  /* la data di oggi sta un gradino indietro: la foto è il soggetto, l'orologio il contorno */
+  #meta .today{opacity:.6}
 
   /* ---------- controlli (compaiono col tocco, come la didascalia) ---------- */
   #controls{
@@ -583,17 +585,19 @@ function hhmm(d){ return String(d.getHours()).padStart(2,'0') + ':' + String(d.g
 
 function showCaption(photo){
   clockEl.textContent = hhmm(new Date());
-  const bits = [];
+  let shot = '';
   if (cfg.showMeta && photo){
     if (photo.taken){
       const d = new Date(photo.taken.replace(' ', 'T').replace(/:(\d{2}):(\d{2})T/, '-$1-$2T'));
-      if (!isNaN(d)) bits.push(d.getDate() + ' ' + MESI[d.getMonth()] + ' ' + d.getFullYear());
+      if (!isNaN(d)) shot = 'Scattata il ' + d.getDate() + ' ' + MESI[d.getMonth()] + ' ' + d.getFullYear();
     }
-    if (!bits.length && photo.name) bits.push(photo.name.replace(/\.[a-z0-9]+$/i, ''));
+    if (!shot && photo.name) shot = photo.name.replace(/\.[a-z0-9]+$/i, '');
   }
   const today = new Date();
-  const oggi = today.getDate() + ' ' + MESI[today.getMonth()];
-  metaEl.innerHTML = bits.length ? bits.join('') + '<span class="sep">·</span>' + oggi : oggi;
+  const oggi = 'Oggi è il ' + today.getDate() + ' ' + MESI[today.getMonth()];
+  metaEl.innerHTML = shot
+    ? shot + '<span class="sep">·</span>' + '<span class="today">' + oggi + '</span>'
+    : '<span class="today">' + oggi + '</span>';
 
   caption.classList.add('show');
   hideOverlaysLater();
