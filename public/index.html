@@ -82,6 +82,36 @@
   }
   #meta .sep{opacity:.45; margin:0 .55em}
 
+  /* ---------- controlli (compaiono col tocco, come la didascalia) ---------- */
+  #controls{
+    position:fixed; z-index:30;
+    right:clamp(24px,5vw,64px); bottom:clamp(20px,4vh,54px);
+    display:flex; align-items:center; gap:clamp(10px,1.6vw,18px);
+    opacity:0; transition:opacity 1.2s ease;
+    pointer-events:none;
+  }
+  #controls.show{opacity:1; pointer-events:auto}
+  #controls button{
+    /* 56px: il minimo perché il tocco sia affidabile anche su schermi datati */
+    width:clamp(56px,7vw,72px); height:clamp(56px,7vw,72px);
+    display:flex; align-items:center; justify-content:center;
+    padding:0; border-radius:50%;
+    border:1px solid rgba(244,241,234,.22);
+    background:rgba(0,0,0,.34);
+    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    color:var(--light); cursor:pointer;
+    transition:background .25s ease, opacity .25s ease;
+  }
+  #controls button:hover{background:rgba(0,0,0,.5)}
+  #controls button:disabled{opacity:.3; cursor:default}
+  #controls button svg{width:42%; height:42%; fill:currentColor; display:block}
+  #playpause{
+    width:clamp(66px,8.4vw,86px); height:clamp(66px,8.4vw,86px);
+    background:rgba(0,0,0,.46);
+  }
+  #playpause svg{width:38%; height:38%}
+  body.night #controls{opacity:0; pointer-events:none}
+
   /* ---------- notte ---------- */
   #night{
     position:fixed; inset:0; background:#000; z-index:40;
@@ -180,6 +210,19 @@
 <div id="caption">
   <div id="clock">--:--</div>
   <div id="meta"></div>
+</div>
+
+<div id="controls">
+  <button id="btnprev" type="button" aria-label="Foto precedente" title="Foto precedente">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5.2v13.6a1 1 0 0 1-1.54.84L6.7 13.24a1.48 1.48 0 0 1 0-2.48l9.76-6.4A1 1 0 0 1 18 5.2z"/><rect x="4" y="4.6" width="2.1" height="14.8" rx="1"/></svg>
+  </button>
+  <button id="playpause" type="button" aria-label="Pausa" title="Pausa">
+    <svg id="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="5.6" y="4" width="4.4" height="16" rx="1.1"/><rect x="14" y="4" width="4.4" height="16" rx="1.1"/></svg>
+    <svg id="icon-play" viewBox="0 0 24 24" aria-hidden="true" style="display:none"><path d="M7.5 4.6l12 6.6a.9.9 0 0 1 0 1.6l-12 6.6A.9.9 0 0 1 6 18.6V5.4a.9.9 0 0 1 1.5-.8z"/></svg>
+  </button>
+  <button id="btnnext" type="button" aria-label="Foto successiva" title="Foto successiva">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5.2v13.6a1 1 0 0 0 1.54.84l9.76-6.4a1.48 1.48 0 0 0 0-2.48L7.54 4.36A1 1 0 0 0 6 5.2z"/><rect x="17.9" y="4.6" width="2.1" height="14.8" rx="1"/></svg>
+  </button>
 </div>
 
 <div id="night"><div id="nightclock">--:--</div></div>
@@ -332,13 +375,16 @@ const slides = [...document.querySelectorAll('.slide')];
 const caption = $('#caption'), clockEl = $('#clock'), metaEl = $('#meta');
 const noteEl = $('#note'), nightClockEl = $('#nightclock');
 const setupEl = $('#setup'), gateEl = $('#gate'), statusEl = $('#status');
+const controlsEl = $('#controls'), playBtn = $('#playpause');
+const iconPlay = $('#icon-play'), iconPause = $('#icon-pause');
+const prevBtn = $('#btnprev'), nextBtn = $('#btnnext');
 
 /* ============ stato ============ */
 const S = {
   photos: [], deck: [], deckPos: 0, history: [], histPos: -1,
   active: 0, advTimer: null, capTimer: null, wakeTimer: null,
   night: false, forcedAwake: false, failures: 0, wakeLock: null,
-  lastFetch: 0, started: false
+  lastFetch: 0, started: false, paused: false
 };
 
 /* ============ note a schermo ============ */
@@ -462,6 +508,8 @@ async function show(photo){
 
 function schedule(ms){
   clearTimeout(S.advTimer);
+  /* in pausa il timer non riparte: avanzano solo i pulsanti e le frecce */
+  if (S.paused) return;
   S.advTimer = setTimeout(() => { if (!S.night || S.forcedAwake) next(); }, ms);
 }
 
@@ -471,11 +519,57 @@ function next(){
   S.history.push(p); if (S.history.length > 60) S.history.shift();
   S.histPos = S.history.length - 1;
   show(p);
+  updateControls();
 }
 function prev(){
   if (S.histPos <= 0) return;
   S.histPos--;
   show(S.history[S.histPos]);
+  updateControls();
+}
+
+/* ============ play / pausa ============ */
+function updateControls(){
+  const paused = S.paused;
+  iconPlay.style.display  = paused ? 'block' : 'none';
+  iconPause.style.display = paused ? 'none'  : 'block';
+  playBtn.setAttribute('aria-label', paused ? 'Riprendi' : 'Pausa');
+  playBtn.setAttribute('title', paused ? 'Riprendi' : 'Pausa');
+  prevBtn.disabled = S.histPos <= 0;
+}
+
+function showControls(){
+  controlsEl.classList.add('show');
+}
+
+function setPaused(v){
+  S.paused = v;
+  if (v){
+    clearTimeout(S.advTimer);
+    /* in pausa la barra resta visibile: chi ha fermato lo scorrimento
+       vuole i pulsanti sotto mano, non deve ritoccare lo schermo ogni volta */
+    clearTimeout(S.capTimer);
+    caption.classList.add('show');
+    showControls();
+  } else {
+    schedule(cfg.intervalSec * 1000);
+    hideOverlaysLater();
+  }
+  updateControls();
+}
+
+function togglePlay(){
+  if (S.night) { wakeForAWhile(); return; }
+  setPaused(!S.paused);
+}
+
+function hideOverlaysLater(){
+  clearTimeout(S.capTimer);
+  if (S.paused) return;
+  S.capTimer = setTimeout(() => {
+    caption.classList.remove('show');
+    controlsEl.classList.remove('show');
+  }, 7000);
 }
 
 /* ============ didascalia e orologio ============ */
@@ -497,8 +591,7 @@ function showCaption(photo){
   metaEl.innerHTML = bits.length ? bits.join('') + '<span class="sep">·</span>' + oggi : oggi;
 
   caption.classList.add('show');
-  clearTimeout(S.capTimer);
-  S.capTimer = setTimeout(() => caption.classList.remove('show'), 7000);
+  hideOverlaysLater();
 }
 
 setInterval(() => {
@@ -525,7 +618,10 @@ function isDayNow(){
 
 function enterNight(){
   S.night = true; S.forcedAwake = false;
+  /* la pausa non sopravvive alla notte: al risveglio la cornice riparte da sola */
+  S.paused = false; updateControls();
   clearTimeout(S.advTimer);
+  controlsEl.classList.remove('show');
   document.body.classList.add('night');
   nightClockEl.style.display = cfg.nightClock ? 'block' : 'none';
   nightClockEl.textContent = hhmm(new Date());
@@ -606,12 +702,22 @@ function closeSetup(){
 
 document.addEventListener('keydown', e => {
   if (setupEl.classList.contains('show') || gateEl.classList.contains('show')) return;
-  if (e.key === 'ArrowRight'){ next(); }
-  else if (e.key === 'ArrowLeft'){ prev(); }
+  if (e.key === 'ArrowRight'){ e.preventDefault(); next(); showCaption(S.history[S.histPos]); showControls(); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); prev(); showCaption(S.history[S.histPos]); showControls(); }
+  else if (e.key === ' ' || e.key === 'Spacebar'){ e.preventDefault(); togglePlay(); }
   else if (e.key === 's' || e.key === 'S'){ openSetup(); }
   else if (e.key === 'f' || e.key === 'F'){ toggleFullscreen(); }
   else if (e.key === 'n' || e.key === 'N'){ S.night ? wakeForAWhile() : enterNight(); }
 });
+
+/* i pulsanti hanno la precedenza sui gesti globali: senza questo, ogni tocco
+   sui controlli farebbe partire anche la pressione lunga e lo schermo intero */
+controlsEl.addEventListener('pointerdown', e => e.stopPropagation());
+controlsEl.addEventListener('click', e => e.stopPropagation());
+
+prevBtn.addEventListener('click', () => { prev(); hideOverlaysLater(); });
+nextBtn.addEventListener('click', () => { next(); hideOverlaysLater(); });
+playBtn.addEventListener('click', togglePlay);
 
 let pressTimer = null;
 document.addEventListener('pointerdown', e => {
@@ -624,7 +730,12 @@ document.addEventListener('pointerdown', e => {
 document.addEventListener('click', () => {
   if (setupEl.classList.contains('show') || gateEl.classList.contains('show')) return;
   if (S.night) wakeForAWhile();
-  else { showCaption(S.history[S.histPos]); toggleFullscreen(); }
+  else {
+    showCaption(S.history[S.histPos]);
+    showControls();
+    hideOverlaysLater();
+    toggleFullscreen();
+  }
 });
 
 function toggleFullscreen(){
@@ -699,6 +810,7 @@ function tryPin(){
 /* ============ via ============ */
 function start(){
   document.body.classList.toggle('still', !cfg.kenBurns);
+  updateControls();
   if (isDayNow()){ requestWakeLock(); refresh(); }
   else { enterNight(); refresh(); }
 }
