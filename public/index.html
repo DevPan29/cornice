@@ -74,20 +74,34 @@
     pointer-events:none;
   }
   #caption.show{opacity:1}
+  #today{
+    font-family:var(--serif);
+    /* metà dell'orologio, stesso carattere */
+    font-size:clamp(23px,3.5vw,52px);
+    line-height:1; letter-spacing:-.01em;
+    margin-bottom:.12em;
+    /* contorno scuro: resta leggibile anche su una foto tutta bianca */
+    -webkit-text-stroke:.5px rgba(0,0,0,.55);
+    paint-order:stroke fill;
+    text-shadow:
+      0 0 3px rgba(0,0,0,.85),
+      0 1px 10px rgba(0,0,0,.7),
+      0 2px 26px rgba(0,0,0,.5);
+  }
   #clock{
     font-family:var(--serif);
     font-size:clamp(46px,7vw,104px);
     line-height:.9; letter-spacing:-.01em;
-    text-shadow:0 2px 24px rgba(0,0,0,.55);
+    -webkit-text-stroke:.5px rgba(0,0,0,.5);
+    paint-order:stroke fill;
+    text-shadow:0 0 4px rgba(0,0,0,.7), 0 2px 24px rgba(0,0,0,.55);
   }
   #meta{
     margin-top:.5em; font-size:clamp(12px,1.35vw,17px);
-    letter-spacing:.02em; color:rgba(244,241,234,.78);
-    text-shadow:0 1px 12px rgba(0,0,0,.6);
+    letter-spacing:.02em; color:rgba(244,241,234,.82);
+    text-shadow:0 0 3px rgba(0,0,0,.85), 0 1px 12px rgba(0,0,0,.6);
   }
   #meta .sep{opacity:.45; margin:0 .55em}
-  /* la data di oggi sta un gradino indietro: la foto è il soggetto, l'orologio il contorno */
-  #meta .today{opacity:.6}
 
   /* ---------- controlli (compaiono col tocco, come la didascalia) ---------- */
   #controls{
@@ -215,6 +229,7 @@
 </div>
 
 <div id="caption">
+  <div id="today">--/--/----</div>
   <div id="clock">--:--</div>
   <div id="meta"></div>
 </div>
@@ -379,7 +394,7 @@ let cfg = loadConfig();
 /* ============ elementi ============ */
 const $ = s => document.querySelector(s);
 const slides = [...document.querySelectorAll('.slide')];
-const caption = $('#caption'), clockEl = $('#clock'), metaEl = $('#meta');
+const caption = $('#caption'), clockEl = $('#clock'), metaEl = $('#meta'), todayEl = $('#today');
 const noteEl = $('#note'), nightClockEl = $('#nightclock');
 const setupEl = $('#setup'), gateEl = $('#gate'), statusEl = $('#status');
 const controlsEl = $('#controls'), playBtn = $('#playpause');
@@ -583,30 +598,36 @@ function hideOverlaysLater(){
 const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 function hhmm(d){ return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 
+function ddmmyyyy(d){
+  return String(d.getDate()).padStart(2,'0') + '/' +
+         String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+}
+
 function showCaption(photo){
-  clockEl.textContent = hhmm(new Date());
+  const now = new Date();
+  clockEl.textContent = hhmm(now);
+  todayEl.textContent = ddmmyyyy(now);
+
   let shot = '';
   if (cfg.showMeta && photo){
     if (photo.taken){
       const d = new Date(photo.taken.replace(' ', 'T').replace(/:(\d{2}):(\d{2})T/, '-$1-$2T'));
-      if (!isNaN(d)) shot = 'Scattata il ' + d.getDate() + ' ' + MESI[d.getMonth()] + ' ' + d.getFullYear();
+      if (!isNaN(d)) shot = 'Foto scattata il: ' + d.getDate() + ' ' + MESI[d.getMonth()] + ' ' + d.getFullYear();
     }
     if (!shot && photo.name) shot = photo.name.replace(/\.[a-z0-9]+$/i, '');
   }
-  const today = new Date();
-  const oggi = 'Oggi è il ' + today.getDate() + ' ' + MESI[today.getMonth()];
-  metaEl.innerHTML = shot
-    ? shot + '<span class="sep">·</span>' + '<span class="today">' + oggi + '</span>'
-    : '<span class="today">' + oggi + '</span>';
+  metaEl.textContent = shot;
 
   caption.classList.add('show');
   hideOverlaysLater();
 }
 
 setInterval(() => {
-  const t = hhmm(new Date());
+  const now = new Date();
+  const t = hhmm(now);
   clockEl.textContent = t;
   nightClockEl.textContent = t;
+  todayEl.textContent = ddmmyyyy(now);
 }, 20000);
 
 /* l'orologio notturno si sposta piano: nessun pixel resta acceso sempre nello stesso punto */

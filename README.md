@@ -24,14 +24,14 @@ cornice/
 3. Copia il link di condivisione:
 
    ```
-   https://drive.google.com/drive/folders/1p1D08RVskWf_cMcAnIX9R-mknC0odTLA?usp=drive_link
+   https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz?usp=drive_link
    ```
 
    **Nel campo *ID della cartella* va solo la parte centrale**, fra `/folders/` e il
    punto interrogativo:
 
    ```
-   1p1D08RVskWf_cMcAnIX9R-mknC0odTLA
+   1AbCdEfGhIjKlMnOpQrStUvWxYz
    ```
 
    Niente `https://`, niente `?usp=drive_link`.
@@ -114,7 +114,7 @@ Dashboard Cloudflare → **Workers & Pages** → il progetto → **Settings** �
 | --- | --- |
 | tipo | **Secret** |
 | nome | `FRAME_TOKEN` |
-| valore | una stringa lunga e casuale, es. `k7mQx2Rv9pLwZ4nT8sYbH3jF` |
+| valore | una stringa lunga e casuale, generata a caso (non riusarla altrove) |
 
 Salva e fai un nuovo deploy: i secret vengono applicati al deploy successivo.
 
@@ -161,7 +161,7 @@ del dispositivo.
 
 | | |
 | --- | --- |
-| Tocco / clic | schermo intero, mostra ora, didascalia e controlli |
+| Tocco / clic | schermo intero, mostra data, ora, didascalia e controlli |
 | Barra dei controlli | precedente · play/pausa · successiva |
 | Barra spaziatrice | play / pausa |
 | `←` `→` | foto precedente / successiva |
