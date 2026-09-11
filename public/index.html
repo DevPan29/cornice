@@ -32,6 +32,11 @@
     -webkit-tap-highlight-color:transparent;
   }
   body.pointer{cursor:auto}
+  /* il cursore ricompare al movimento e sparisce da fermo: comodo da PC,
+     invisibile sulla cornice appesa al muro */
+  body.mousing{cursor:auto}
+  body.mousing #controls{opacity:1; pointer-events:auto}
+  body.mousing.night #controls{opacity:0; pointer-events:none}
 
   /* ---------- palcoscenico foto ---------- */
   #stage{position:fixed; inset:0; background:#000}
@@ -686,6 +691,17 @@ async function refresh(){
 }
 
 setInterval(() => { if (!S.night && Date.now() - S.lastFetch > cfg.refreshHours*3600*1000) refresh(); }, 600000);
+
+/* ============ cursore ============ */
+let mouseTimer = null;
+document.addEventListener('mousemove', e => {
+  /* i browser generano un mousemove sintetico dopo ogni tocco: senza questo
+     filtro il cursore comparirebbe anche sul tablet */
+  if (e.movementX === 0 && e.movementY === 0) return;
+  document.body.classList.add('mousing');
+  clearTimeout(mouseTimer);
+  mouseTimer = setTimeout(() => document.body.classList.remove('mousing'), 3000);
+});
 
 /* ============ comandi ============ */
 function openSetup(){
